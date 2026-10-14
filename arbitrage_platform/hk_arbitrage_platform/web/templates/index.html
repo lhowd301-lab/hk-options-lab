@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HK Options Arbitrage Backtester</title>
+    <script src="/static/plotly.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f1117; color: #e1e4e8; }
+        .header { background: linear-gradient(135deg, #1a1e2e 0%, #161923 100%); padding: 20px 32px; border-bottom: 1px solid #30363d; }
+        .header h1 { font-size: 22px; font-weight: 600; color: #58a6ff; }
+        .header p { font-size: 13px; color: #8b949e; margin-top: 4px; }
+        .container { max-width: 1500px; margin: 0 auto; padding: 20px; }
+        .grid { display: grid; grid-template-columns: 300px 1fr; gap: 16px; }
+        .panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+        .panel h2 { font-size: 13px; font-weight: 600; color: #c9d1d9; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        label { display: block; font-size: 12px; color: #8b949e; margin: 10px 0 3px; }
+        select, input { width: 100%; padding: 7px 10px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 13px; }
+        .btn { width: 100%; padding: 9px; background: #238636; border: none; border-radius: 6px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 14px; }
+        .btn:hover { background: #2ea043; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+        .chart-box { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 10px; }
+        .chart-box.full { grid-column: 1 / -1; }
+        .chart-box h4 { font-size: 11px; color: #8b949e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+        .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 14px; }
+        .stat-card { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; text-align: center; }
+        .stat-card .val { font-size: 18px; font-weight: 700; color: #58a6ff; }
+        .stat-card .lbl { font-size: 10px; color: #8b949e; margin-top: 3px; }
+        .stat-card.green .val { color: #3fb950; }
+        .stat-card.red .val { color: #f85149; }
+        .stat-card.gold .val { color: #d29922; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { text-align: left; padding: 6px 8px; background: #0d1117; color: #8b949e; font-weight: 600; border-bottom: 1px solid #21262d; white-space: nowrap; }
+        td { padding: 5px 8px; border-bottom: 1px solid #161b22; color: #c9d1d9; }
+        tr:hover td { background: #161b22; }
+        .badge { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 600; }
+        .badge.buy { background: #003d33; color: #7ee787; }
+        .badge.sell { background: #3d0000; color: #ffa198; }
+        .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 6px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .empty-state { text-align: center; padding: 80px 20px; color: #8b949e; }
+        .btn-sm { padding: 3px 10px; background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; font-size: 11px; cursor: pointer; }
+        .btn-sm:hover { background: #30363d; }
+        .tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+        .tab { padding: 5px 12px; background: #0d1117; border: 1px solid #21262d; border-radius: 4px; color: #8b949e; font-size: 11px; cursor: pointer; }
+        .tab.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>HK Options Arbitrage Backtester</h1>
+    <p>Hong Kong Stock Options Strategy Backtesting &bull; Multi-Chart Visualization</p>
+</div>
+<div class="container">
+    <div class="grid">
+        <div class="panel">
+            <h2>Backtest Config</h2>
+            <label>Stock Code</label>
+            <select id="stockCode" multiple size="5">
+                <option value="00700" selected>00700 - Tencent</option>
+                <option value="01810">01810 - Xiaomi</option>
+                <option value="00981">00981 - SMIC</option>
+                <option value="00992">00992 - Lenovo</option>
+                <option value="09888">09888 - Baidu</option>
+                <option value="09626">09626 - Bilibili</option>
+                <option value="01024">01024 - Kuaishou</option>
+                <option value="09988">09988 - Alibaba</option>
+                <option value="09618">09618 - JD</option>
+                <option value="02382">02382 - SunnyOptical</option>
+            </select>
+            <label>Strategy</label>
+            <select id="strategy">
+                <option value="volatility_breakout">Volatility Breakout (ORB)</option>
+                <option value="rsi_mean_reversion" selected>RSI Mean Reversion</option>
+                <option value="put_call_parity">Put-Call Parity Arbitrage</option>
+                <option value="box_spread">Box Spread Arbitrage</option>
+                <option value="hv_iv_spread">HV-IV Volatility Arbitrage</option>
+                <option value="covered_call">Covered Call</option>
+            </select>
+            <label>Initial Capital ($)</label>
+            <input type="number" id="capital" value="100000" min="1000" step="1000">
+            <label>Interval</label>
+            <select id="interval">
+                <option value="daily" selected>Daily (日线)</option>
+                <option value="15min">15min</option>
+                <option value="30min">30min</option>
+                <option value="60min">60min</option>
+            </select>
+
+            <label>History (days)</label>
+            <input type="number" id="days" value="90" min="30" max="500">
+            <button class="btn" id="runBtn" onclick="runBacktest()">Run Backtest</button>
+        </div>
+
+        <div id="results">
+            <div class="empty-state">
+                <p style="font-size:18px;font-weight:600;">Backtest Dashboard</p>
+                <p style="font-size:13px;margin-top:8px;">Configure parameters on the left and run a backtest</p>
+                <p style="font-size:12px;margin-top:4px;color:#636d7d;">Charts: Equity Curve | P&L Distribution | Trade Analysis</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function runBacktest() {
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true; btn.textContent = 'Running...';
+    const sel = document.getElementById('stockCode');
+    const codes = Array.from(sel.selectedOptions).map(o => o.value);
+    const data = {
+        codes: codes.length > 0 ? codes : ['00700'],
+        strategy: document.getElementById('strategy').value,
+        capital: parseFloat(document.getElementById('capital').value),
+        days: parseInt(document.getElementById('days').value),
+                interval: document.getElementById('interval').value
+    };
+    const rd = document.getElementById('results');
+    rd.innerHTML = '<div class="panel" style="text-align:center;padding:50px;"><div class="spinner"></div>Fetching data & running backtest...</div>';
+    fetch('/api/backtest', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) })
+    .then(r => r.json())
+    .then(r => {
+        if (r.error) { rd.innerHTML = `<div class="panel" style="border-color:#f85149;"><h3 style="color:#f85149;">Error</h3><p>${r.error}</p></div>`; return; }
+        renderVisual(r);
+    })
+    .catch(e => { rd.innerHTML = `<div class="panel" style="border-color:#f85149;"><h3 style="color:#f85149;">Error</h3><p>${e.message}</p></div>`; })
+    .finally(() => { btn.disabled = false; btn.textContent = 'Run Backtest'; });
+}
+
+function renderVisual(resp) {
+    const agg = resp.aggregate || {};
+    const results = resp.results || {};
+    let html = '';
+
+    const isProfitable = (agg.pnl || 0) >= 0;
+    html += '<div class="stats-row">';
+    [
+        {v: Number(agg.trades || 0).toLocaleString(), l: 'Total Trades', c: ''},
+        {v: (isProfitable ? '+' : '') + '$' + Number(agg.pnl || 0).toLocaleString(undefined, {minimumFractionDigits:0,maximumFractionDigits:0}), l: 'Total P&L', c: isProfitable ? 'green' : 'red'},
+        {v: (agg.pnl_pct || 0).toFixed(2) + '%', l: 'Return', c: isProfitable ? 'green' : 'red'},
+        {v: (agg.win_rate || 0).toFixed(1) + '%', l: 'Win Rate', c: agg.win_rate > 50 ? 'green' : 'red'},
+        {v: Object.keys(results).length, l: 'Stocks', c: ''},
+        {v: agg.capital ? '$' + Number(agg.capital).toLocaleString() : '$100K', l: 'Capital', c: ''},
+    ].forEach(function(s) { html += '<div class="stat-card ' + s.c + '"><div class="val">' + s.v + '</div><div class="lbl">' + s.l + '</div></div>'; });
+    html += '</div>';
+
+    const stratNames = { volatility_breakout:'VolBreakout', rsi_mean_reversion:'RSI Reversion', put_call_parity:'PCP Arbitrage', box_spread:'Box Spread', hv_iv_spread:'HV-IV Arb', covered_call:'Covered Call' };
+
+    // Build chart divs (store chart configs for later plotting)
+    const chartConfigs = [];
+
+    Object.entries(results).forEach(function([code, r]) {
+        const trades = r.trade_list || [];
+        const n = trades.length;
+        const equity = r.equity || [];
+        const wins = trades.filter(function(t) { return t.is_win; }).length;
+        const losses = n - wins;
+        const avgPnl = n > 0 ? (r.pnl/n).toFixed(2) : '0';
+
+        html += '<div class="chart-box full" style="margin-bottom:14px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+        html += '<h3 style="font-size:15px;">' + (r.stock_name || code) + ' (' + code + ')</h3>';
+        html += '<span style="font-size:11px;color:#8b949e;">' + (stratNames[r.engine]||r.engine) + ' | Trades: ' + n + ' | P&L: $' + (r.pnl||0).toFixed(2) + ' | Avg: $' + avgPnl + '</span>';
+        html += '</div>';
+
+        if (n === 0) {
+            html += '<p style="color:#8b949e;font-size:12px;padding:20px 0;">No trades generated for this strategy.</p></div>';
+            return;
+        }
+
+        html += '<div class="charts-grid">';
+        html += '<div class="chart-box full"><h4>Equity Curve</h4><div id="eq-' + code + '" style="height:220px;"></div></div>';
+        html += '<div class="chart-box"><h4>P&L Distribution</h4><div id="dist-' + code + '" style="height:180px;"></div></div>';
+        html += '<div class="chart-box"><h4>Win / Loss</h4><div id="pie-' + code + '" style="height:180px;"></div></div>';
+        html += '<div class="chart-box"><h4>Trades by Underlying Price</h4><div id="scatter-' + code + '" style="height:180px;"></div></div>';
+        html += '<div class="chart-box"><h4>Per-Trade P&L</h4><div id="bar-' + code + '" style="height:180px;"></div></div>';
+        html += '</div>';
+
+        // Trade table
+        html += '<div style="margin-top:8px;"><h4 style="font-size:11px;color:#8b949e;margin-bottom:6px;">Trade Details</h4>';
+        html += '<div style="max-height:200px;overflow-y:auto;"><table><tr><th>#</th><th>Side</th><th>Type</th><th>Strike</th><th>Premium</th><th>Underlying</th><th>P&L</th><th>Cumulative</th></tr>';
+        trades.forEach(function(t, i) {
+            const pnlCls = t.pnl >= 0 ? '#3fb950' : '#f85149';
+            html += '<tr><td>' + (i+1) + '</td><td><span class="badge ' + t.side.toLowerCase() + '">' + t.side + '</span></td><td>' + t.type + '</td><td>$' + t.strike.toFixed(1) + '</td><td>$' + t.premium.toFixed(2) + '</td><td>$' + t.underlying.toFixed(2) + '</td><td style="color:' + pnlCls + '">' + (t.pnl >= 0 ? '+' : '') + '$' + t.pnl.toFixed(2) + '</td><td>$' + t.cum.toFixed(2) + '</td></tr>';
+        });
+        html += '</table></div></div></div>';
+
+        // Store chart config for later plotting
+        chartConfigs.push({ code: code, trades: trades, equity: equity, wins: wins, losses: losses });
+    });
+
+    // Insert HTML first
+    document.getElementById('results').innerHTML = html;
+
+    // Check if Plotly loaded
+    if (typeof Plotly === 'undefined') {
+        document.getElementById('results').innerHTML = '<div class="panel" style="text-align:center;padding:40px;color:#f85149;"><h3>Plotly not loaded</h3><p>Charts cannot render. Using table view instead.</p></div>' + html;
+        return;
+    }
+    // Now create charts
+    chartConfigs.forEach(function(cfg) {
+        const eq = cfg.equity;
+        const idx = Array.from({length: eq.length}, function(_, i) { return i+1; });
+        const pnls = cfg.trades.map(function(t) { return t.pnl; });
+        const code = cfg.code;
+        const wins = cfg.wins;
+        const losses = cfg.losses;
+
+        if (eq.length === 0) return;
+
+        // 1. Equity Curve
+        Plotly.newPlot('eq-' + code, [{
+            x: idx, y: eq, type: 'scatter', mode: 'lines+markers',
+            line: {color: '#58a6ff', width: 2, shape: 'hv'},
+            marker: {color: '#58a6ff', size: 4}
+        }], {
+            margin: {l:45,r:10,t:10,b:30}, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+            font: {color: '#8b949e', size: 9}, xaxis: {title: 'Trade #', color: '#636d7d', gridcolor: '#1c2128'},
+            yaxis: {title: 'Cum P&L ($)', color: '#636d7d', gridcolor: '#1c2128'},
+            showlegend: false, hovermode: 'x unified'
+        }, {responsive:true, displayModeBar:false});
+
+        // 2. P&L Distribution
+        Plotly.newPlot('dist-' + code, [{
+            x: pnls, type: 'histogram', nbinsx: Math.min(15, pnls.length),
+            marker: {color: '#58a6ff', line: {color: '#58a6ff', width: 1}}
+        }], {
+            margin: {l:40,r:10,t:10,b:25}, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+            font: {color: '#8b949e', size: 9}, xaxis: {title: 'P&L ($)', color: '#636d7d', gridcolor: '#1c2128'},
+            yaxis: {title: 'Count', color: '#636d7d', gridcolor: '#1c2128'},
+            showlegend: false, bargap: 0.1
+        }, {responsive:true, displayModeBar:false});
+
+        // 3. Win/Loss Pie
+        Plotly.newPlot('pie-' + code, [{
+            values: [wins, losses],
+            labels: ['Win ('+wins+')', 'Loss ('+losses+')'],
+            type: 'pie',
+            marker: {colors: ['#3fb950', '#f85149']},
+            textinfo: 'label+percent',
+            textfont: {size: 10, color: '#c9d1d9'},
+            hole: 0.45
+        }], {
+            margin: {l:5,r:5,t:5,b:5}, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+            showlegend: false, font: {color: '#8b949e', size: 9}
+        }, {responsive:true, displayModeBar:false});
+
+        // 4. Trade Scatter
+        const undPrices = cfg.trades.map(function(t) { return t.underlying; });
+        const colors = pnls.map(function(p) { return p >= 0 ? '#3fb950' : '#f85149'; });
+        const sizes = pnls.map(function(p) { return Math.max(6, Math.min(16, Math.abs(p)*2)); });
+        Plotly.newPlot('scatter-' + code, [{
+            x: undPrices, y: pnls, type: 'scatter', mode: 'markers',
+            marker: {color: colors, size: sizes, line: {color: '#0d1117', width: 1}, opacity: 0.8}
+        }], {
+            margin: {l:40,r:10,t:10,b:25}, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+            font: {color: '#8b949e', size: 9}, xaxis: {title: 'Underlying ($)', color: '#636d7d', gridcolor: '#1c2128'},
+            yaxis: {title: 'P&L ($)', color: '#636d7d', gridcolor: '#1c2128'},
+            showlegend: false, hovermode: 'closest'
+        }, {responsive:true, displayModeBar:false});
+
+        // 5. Per-Trade P&L Bar
+        const barColors = pnls.map(function(p) { return p >= 0 ? '#3fb950' : '#f85149'; });
+        Plotly.newPlot('bar-' + code, [{
+            x: idx, y: pnls, type: 'bar',
+            marker: {color: barColors, line: {width: 0}}
+        }], {
+            margin: {l:40,r:10,t:10,b:25}, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+            font: {color: '#8b949e', size: 9}, xaxis: {title: 'Trade #', color: '#636d7d', gridcolor: '#1c2128'},
+            yaxis: {title: 'P&L ($)', color: '#636d7d', gridcolor: '#1c2128'},
+            showlegend: false, bargap: 0.15
+        }, {responsive:true, displayModeBar:false});
+    });
+}</script>
+</body>
+</html>

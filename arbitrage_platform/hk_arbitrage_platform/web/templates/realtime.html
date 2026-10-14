@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HK Real-Time Monitor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f1117; color: #e1e4e8; }
+        .header { background: linear-gradient(135deg, #1a1e2e 0%, #161923 100%); padding: 16px 24px; border-bottom: 1px solid #30363d; display: flex; align-items: center; gap: 20px; }
+        .header h1 { font-size: 18px; font-weight: 600; color: #58a6ff; }
+        .header a { color: #8b949e; text-decoration: none; font-size: 13px; padding: 4px 10px; border: 1px solid #30363d; border-radius: 4px; }
+        .header a:hover { color: #58a6ff; border-color: #58a6ff; }
+        .container { max-width: 1500px; margin: 0 auto; padding: 16px; }
+        .grid { display: grid; grid-template-columns: 280px 1fr 320px; gap: 12px; }
+        .panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 14px; }
+        .panel h2 { font-size: 12px; font-weight: 600; color: #8b949e; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        label { display: block; font-size: 11px; color: #8b949e; margin: 8px 0 3px; }
+        select, input { width: 100%; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; font-size: 12px; }
+        .btn { padding: 6px 14px; border: none; border-radius: 4px; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .btn-green { background: #238636; }
+        .btn-green:hover { background: #2ea043; }
+        .btn-red { background: #da3633; }
+        .btn-red:hover { background: #f85149; }
+        .btn-blue { background: #1f6feb; }
+        .btn-blue:hover { background: #388bfd; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .price-card { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 10px; margin-bottom: 6px; }
+        .price-card .code { font-size: 13px; font-weight: 600; color: #c9d1d9; }
+        .price-card .price { font-size: 18px; font-weight: 700; margin: 4px 0; }
+        .price-card .price.up { color: #3fb950; }
+        .price-card .price.down { color: #f85149; }
+        .price-card .detail { font-size: 11px; color: #8b949e; display: flex; gap: 12px; }
+        .signal-item { padding: 6px 8px; border-left: 3px solid #1f6feb; margin-bottom: 4px; background: #0d1117; border-radius: 0 4px 4px 0; font-size: 11px; }
+        .signal-item .act { font-weight: 600; }
+        .signal-item .act.buy { color: #3fb950; }
+        .signal-item .act.sell { color: #f85149; }
+        .pos-item { padding: 6px 8px; background: #0d1117; border: 1px solid #21262d; border-radius: 4px; margin-bottom: 4px; font-size: 11px; }
+        .pos-item .pnl { font-weight: 600; }
+        .pos-item .pnl.pos { color: #3fb950; }
+        .pos-item .pnl.neg { color: #f85149; }
+        .trade-item { font-size: 11px; color: #8b949e; padding: 3px 0; border-bottom: 1px solid #21262d; }
+        .badge { display: inline-block; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+        .badge.open { background: #1f6feb22; color: #58a6ff; }
+        .badge.closed { background: #3fb95022; color: #3fb950; }
+        .tog { position: relative; display: inline-block; width: 36px; height: 20px; }
+        .tog input { opacity: 0; width: 0; height: 0; }
+        .tog .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #30363d; transition: .3s; border-radius: 20px; }
+        .tog .slider:before { content: ""; position: absolute; height: 14px; width: 14px; left: 3px; bottom: 3px; background: #fff; transition: .3s; border-radius: 50%; }
+        .tog input:checked + .slider { background: #238636; }
+        .tog input:checked + .slider:before { transform: translateX(16px); }
+        .stat-row { display: flex; gap: 8px; margin: 8px 0; }
+        .stat { flex: 1; text-align: center; padding: 8px; background: #0d1117; border-radius: 4px; }
+        .stat .v { font-size: 16px; font-weight: 700; color: #c9d1d9; }
+        .stat .l { font-size: 10px; color: #8b949e; }
+        .running-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+        .running-dot.on { background: #3fb950; box-shadow: 0 0 6px #3fb950; }
+        .running-dot.off { background: #f85149; }
+        .tab { display: inline-block; padding: 4px 10px; font-size: 11px; color: #8b949e; cursor: pointer; border: 1px solid #30363d; border-radius: 4px 4px 0 0; background: #0d1117; margin-right: 2px; }
+        .tab.active { color: #c9d1d9; border-bottom-color: #161b22; background: #161b22; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .blink { animation: blink 1s infinite; }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>HK Real-Time Monitor</h1>
+    <a href="/">Back to Backtester</a>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+        <span class="running-dot" id="statusDot"></span>
+        <span id="statusText" style="font-size:12px;color:#8b949e;">Stopped</span>
+    </div>
+</div>
+
+<div class="container">
+    <div class="grid">
+        <!-- Left: Controls -->
+        <div class="panel">
+            <h2>Monitor Config</h2>
+            <label>Stock Code</label>
+            <select id="mCode" multiple size="4">
+                <option value="00700" selected>00700 - Tencent</option>
+                <option value="01810">01810 - Xiaomi</option>
+                <option value="00981">00981 - SMIC</option>
+                <option value="00992">00992 - Lenovo</option>
+                <option value="09888">09888 - Baidu</option>
+                <option value="09626">09626 - Bilibili</option>
+            </select>
+            <label>Strategy</label>
+            <select id="mStrategy">
+                <option value="rsi_mean_reversion">RSI Mean Reversion</option>
+                <option value="volatility_breakout">Volatility Breakout</option>
+            </select>
+            <label>Poll Interval (sec)</label>
+            <input type="number" id="mInterval" value="30" min="10" max="300">
+            <div style="display:flex;gap:6px;margin-top:10px;">
+                <button class="btn btn-green" id="startBtn" onclick="startMonitor()">Start</button>
+                <button class="btn btn-red" id="stopBtn" onclick="stopMonitor()" disabled>Stop</button>
+            </div>
+            <hr style="border-color:#21262d;margin:12px 0;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:12px;color:#8b949e;">Auto Trade</span>
+                <label class="tog"><input type="checkbox" id="autoTrade" onchange="toggleAuto()"><span class="slider"></span></label>
+            </div>
+            <div class="stat-row">
+                <div class="stat"><div class="v" id="capVal">100K</div><div class="l">Capital</div></div>
+                <div class="stat"><div class="v" id="posVal">0</div><div class="l">Positions</div></div>
+                <div class="stat"><div class="v" id="sigVal">0</div><div class="l">Signals</div></div>
+                <div class="stat"><div class="v" id="trdVal">0</div><div class="l">Trades</div></div>
+            </div>
+        </div>
+
+        <!-- Center: Live Prices -->
+        <div class="panel">
+            <h2>Live Prices <span id="updateTime" style="font-weight:400;color:#636d7d;font-size:11px;"></span></h2>
+            <div id="priceList"><div style="color:#8b949e;font-size:12px;padding:20px 0;text-align:center;">Start monitor to see live prices</div></div>
+        </div>
+
+        <!-- Right: Signals & Positions -->
+        <div class="panel">
+            <div class="tab active" onclick="switchTab(this,'signals')">Signals</div>
+            <div class="tab" onclick="switchTab(this,'positions')">Positions</div>
+            <div class="tab" onclick="switchTab(this,'trades')">Trades</div>
+            <div id="signals" style="margin-top:8px;max-height:500px;overflow-y:auto;">
+                <div style="color:#8b949e;font-size:12px;padding:20px 0;text-align:center;">No signals yet</div>
+            </div>
+            <div id="positions" style="margin-top:8px;max-height:500px;overflow-y:auto;display:none;">
+                <div style="color:#8b949e;font-size:12px;padding:20px 0;text-align:center;">No open positions</div>
+            </div>
+            <div id="trades" style="margin-top:8px;max-height:500px;overflow-y:auto;display:none;">
+                <div style="color:#8b949e;font-size:12px;padding:20px 0;text-align:center;">No trades yet</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let pollTimer = null;
+
+function startMonitor() {
+    const sel = document.getElementById('mCode');
+    const codes = Array.from(sel.selectedOptions).map(o => o.value);
+    fetch('/api/realtime/start', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            codes: codes.length > 0 ? codes : ['00700'],
+            strategy: document.getElementById('mStrategy').value,
+            interval: parseInt(document.getElementById('mInterval').value)
+        })
+    }).then(r => r.json()).then(r => {
+        if (r.status === 'ok') {
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('statusDot').className = 'running-dot on';
+            document.getElementById('statusText').textContent = 'Running';
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = setInterval(pollStatus, 2000);
+        }
+    });
+}
+
+function stopMonitor() {
+    fetch('/api/realtime/stop', {method: 'POST'})
+    .then(r => r.json()).then(r => {
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('statusDot').className = 'running-dot off';
+        document.getElementById('statusText').textContent = 'Stopped';
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    });
+}
+
+function toggleAuto() {
+    const en = document.getElementById('autoTrade').checked;
+    fetch('/api/realtime/auto', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({enabled: en})
+    });
+}
+
+function pollStatus() {
+    fetch('/api/realtime/status')
+    .then(r => r.json())
+    .then(d => {
+        document.getElementById('updateTime').textContent = new Date().toLocaleTimeString();
+        document.getElementById('sigVal').textContent = d.signal_count || 0;
+        document.getElementById('posVal').textContent = (d.executor?.positions || []).length;
+        document.getElementById('trdVal').textContent = d.executor?.trade_count || 0;
+        document.getElementById('capVal').textContent = d.executor?.capital ? '$' + Math.round(d.executor.capital/1000) + 'K' : '100K';
+
+        // Prices
+        let ph = '';
+        if (d.prices && Object.keys(d.prices).length > 0) {
+            Object.entries(d.prices).forEach(([code, p]) => {
+                const chg = p.change || 0;
+                const cls = chg >= 0 ? 'up' : 'down';
+                ph += '<div class="price-card">';
+                ph += '<div class="code">' + code + '</div>';
+                ph += '<div class="price ' + cls + '">' + (p.price || '-').toFixed(2) + '</div>';
+                ph += '<div class="detail">';
+                if (p.change) ph += '<span>Chg: ' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '</span>';
+                if (p.rsi) ph += '<span>RSI: ' + p.rsi.toFixed(1) + '</span>';
+                if (p.volume) ph += '<span>Vol: ' + Math.round(p.volume/1000) + 'K</span>';
+                ph += '<span>' + (p.time || '') + '</span>';
+                ph += '</div></div>';
+            });
+        } else {
+            ph = '<div style="color:#8b949e;font-size:12px;padding:20px 0;text-align:center;">Waiting for data...</div>';
+        }
+        document.getElementById('priceList').innerHTML = ph;
+
+        // Signals
+        if (d.signals && d.signals.length > 0) {
+            let sh = '';
+            d.signals.slice().reverse().forEach(s => {
+                const isBuy = s.action && s.action.includes('BUY');
+                sh += '<div class="signal-item">';
+                sh += '<span class="act ' + (isBuy ? 'buy' : 'sell') + '">' + (s.action || 'SIGNAL') + '</span>';
+                sh += ' <span style="color:#c9d1d9;">' + s.code + '</span>';
+                sh += ' @ $' + (s.entry || s.price || 0).toFixed(2);
+                if (s.rsi) sh += ' RSI=' + s.rsi;
+                sh += '<br><span style="color:#636d7d;">' + (s.reason || '') + ' @ ' + (s.price_time || '') + '</span>';
+                sh += '</div>';
+            });
+            document.getElementById('signals').innerHTML = sh;
+        }
+
+        // Positions
+        if (d.executor && d.executor.positions && d.executor.positions.length > 0) {
+            let ph2 = '';
+            d.executor.positions.forEach(p => {
+                const pnlCls = p.pnl >= 0 ? 'pos' : 'neg';
+                ph2 += '<div class="pos-item">';
+                ph2 += '<span style="color:#c9d1d9;font-weight:600;">' + p.code + '</span> ';
+                ph2 += '<span class="badge open">' + p.action + '</span>';
+                ph2 += '<br>Entry: $' + p.entry.toFixed(2) + ' x ' + p.quantity;
+                ph2 += '<br>P&L: <span class="pnl ' + pnlCls + '">$' + p.pnl.toFixed(2) + '</span>';
+                ph2 += '</div>';
+            });
+            document.getElementById('positions').innerHTML = ph2;
+        }
+
+        // Recent trades
+        if (d.executor && d.executor.trades && d.executor.trades.length > 0) {
+            let th = '';
+            d.executor.trades.slice().reverse().forEach(t => {
+                th += '<div class="trade-item">';
+                th += '[' + (t.time || '').slice(11,19) + '] ' + t.code + ' ' + t.action;
+                th += ' @ $' + t.entry.toFixed(2) + ' x' + t.quantity;
+                th += ' <span class="badge ' + (t.type==='auto'?'open':'closed') + '">' + t.type + '</span>';
+                th += '</div>';
+            });
+            document.getElementById('trades').innerHTML = th;
+        }
+    });
+}
+
+function switchTab(el, tab) {
+    document.querySelectorAll('.tab').forEach(t => t.className = 'tab');
+    el.className = 'tab active';
+    ['signals','positions','trades'].forEach(id => {
+        document.getElementById(id).style.display = id === tab ? 'block' : 'none';
+    });
+}
+</script>
+</body>
+</html>

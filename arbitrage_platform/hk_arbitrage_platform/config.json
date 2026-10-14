@@ -1,0 +1,25 @@
+{
+  "initial_capital": 100000,
+  "commission_pct": 0.001,
+  "risk_free_rate": 0.035,
+  "default_start_date": "2026-01-01",
+  "default_end_date": "2026-07-17",
+  "futu_api": {
+    "host": "127.0.0.1",
+    "port": 11111
+  },
+  "hsi_stocks": {
+    "00700": "Tencent",
+    "01810": "Xiaomi",
+    "00981": "SMIC",
+    "00992": "Lenovo",
+    "09888": "Baidu",
+    "09626": "Bilibili",
+    "01024": "Kuaishou",
+    "09999": "NetEase",
+    "09988": "Alibaba",
+    "09618": "JD",
+    "02382": "SunnyOptical",
+    "09961": "Trip"
+  }
+}

@@ -1,0 +1,73 @@
+ # Gamma Scalping 系统配置文件
+ # 腾讯 00700.HK 个股期权自动化交易
+ 
+ # === 标的合约 ===
+ underlying:
+   code: "HK.00700"           # 腾讯控股
+   name: "Tencent Holdings"
+   lot_size: 100              # 每手股数
+   option_multiplier: 100     # 每张期权对应股数
+ 
+ # === 期权选择规则 ===
+ option_selection:
+   expiry_min_days: 5         # 最小剩余到期天数
+   expiry_max_days: 20        # 最大剩余到期天数
+   delta_min: 0.35            # 最小 Delta 绝对值
+   delta_max: 0.65            # 最大 Delta 绝对值
+   option_type: "CALL"        # CALL 或 PUT
+   prefer_near_atm: true      # 优选最接近平值的合约
+ 
+ # === 策略参数 ===
+ strategy:
+   rebalance_threshold: 0.1   # 组合净 Delta 绝对值超过此值触发再平衡
+   rebalance_dynamic_atr: false
+   atr_period: 14
+   stop_loss_atr_multiple: 3.0
+   close_before_market_end_min: 5
+   max_daily_loss: 0.0
+ 
+ # === 交易成本（港股） ===
+ trading_costs:
+   commission_rate: 0.0025
+   min_commission: 5.0
+   stamp_duty_rate: 0.0013
+   stamp_duty_min: 1.0
+   platform_fee: 15.0
+   settlement_fee_rate: 0.000027
+   min_scalp_profit: 50.0
+ 
+ # === FutuOpenD 连接 ===
+ futu:
+   host: "127.0.0.1"
+   quote_port: 11111
+   trade_port: 11111
+   trade_env: "SIMULATE"
+   trd_market: "HK"
+   password: ""
+ 
+ # === 风控 ===
+ risk:
+   max_position_value: 500000
+   max_option_contracts: 2
+   max_daily_trades: 50
+ 
+ # === 日志 ===
+ logging:
+   level: "INFO"
+   file: "logs/gamma_scalping.log"
+   max_bytes: 52428800
+   backup_count: 7
+ 
+ # === 市场时间（港股） ===
+ market_hours:
+   open: "09:30"
+   lunch_start: "12:00"
+   lunch_end: "13:00"
+   close: "16:00"
+   timezone: "Asia/Hong_Kong"
+ 
+ # === Black-Scholes 模型参数 ===
+ bs_model:
+   risk_free_rate: 0.035
+   dividend_yield: 0.008
+   default_iv: 0.30

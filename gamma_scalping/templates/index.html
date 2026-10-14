@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gamma Scalping Dashboard - 腾讯00700.HK</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0d1117; color: #e6edf3; min-height: 100vh; }
+.header { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
+.header h1 { font-size: 18px; font-weight: 600; }
+.header .subtitle { font-size: 12px; color: #8b949e; }
+.status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+.status-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+.status-running .dot { background: #3fb950; box-shadow: 0 0 6px #3fb950; }
+.status-running { background: #1a3a2a; color: #7ee787; }
+.status-stopped .dot { background: #8b949e; }
+.status-stopped { background: #21262d; color: #8b949e; }
+.status-error .dot { background: #f85149; box-shadow: 0 0 6px #f85149; }
+.status-error { background: #3a1a1a; color: #f85149; }
+.container { max-width: 1400px; margin: 0 auto; padding: 16px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+.card-title { font-size: 11px; text-transform: uppercase; color: #8b949e; letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600; }
+.card-value { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+.card-sub { font-size: 12px; color: #8b949e; }
+.value-positive { color: #3fb950; }
+.value-negative { color: #f85149; }
+.value-neutral { color: #e6edf3; }
+.greek-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+.greek-row .label { color: #8b949e; }
+.greek-row .value { font-weight: 500; font-family: 'JetBrains Mono', 'Consolas', monospace; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { padding: 8px 20px; border: 1px solid #30363d; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; background: #21262d; color: #c9d1d9; }
+.btn:hover { background: #30363d; }
+.btn-start { border-color: #3fb950; color: #3fb950; }
+.btn-start:hover { background: #1a3a2a; }
+.btn-stop { border-color: #f85149; color: #f85149; }
+.btn-stop:hover { background: #3a1a1a; }
+.btn-danger { background: #f85149; color: #fff; border-color: #f85149; }
+.btn-danger:hover { background: #da3633; }
+.log-box { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; height: 300px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px; padding: 8px; }
+.log-entry { padding: 2px 0; border-bottom: 1px solid #21262d; }
+.log-time { color: #8b949e; }
+.log-INFO { color: #e6edf3; }
+.log-WARNING { color: #d29922; }
+.log-ERROR { color: #f85149; }
+.log-SIGNAL { color: #58a6ff; font-weight: 600; }
+.stats-row { display: flex; gap: 24px; }
+.stat { text-align: center; }
+.stat-value { font-size: 20px; font-weight: 700; }
+.stat-label { font-size: 11px; color: #8b949e; margin-top: 2px; }
+.section-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #e6edf3; }
+.price-ticker { font-size: 32px; font-weight: 700; letter-spacing: -0.5px; }
+.ticker-change { font-size: 14px; font-weight: 500; margin-left: 8px; }
+.iv-bar { background: #21262d; border-radius: 4px; height: 4px; margin-top: 4px; overflow: hidden; }
+.iv-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #58a6ff, #3fb950); transition: width 0.3s; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.empty-state { color: #8b949e; font-size: 13px; text-align: center; padding: 20px; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0d1117; }
+::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>Gamma Scalping Dashboard</h1>
+    <div class="subtitle">腾讯 00700.HK ｜ 个股期权自动对冲策略</div>
+  </div>
+  <div>
+    <span id="statusBadge" class="status-badge status-stopped"><span class="dot"></span>Stopped</span>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Status Cards -->
+  <div class="grid">
+    <div class="card" id="priceCard">
+      <div class="card-title">标的价格</div>
+      <div class="price-ticker" id="price">--</div>
+      <div class="ticker-change" id="dayChange">--</div>
+      <div class="card-sub">ATR(14): <span id="atr">--</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">期权希腊值</div>
+      <div class="greek-row"><span class="label">Delta</span><span class="value" id="delta">--</span></div>
+      <div class="greek-row"><span class="label">Gamma</span><span class="value" id="gamma">--</span></div>
+      <div class="greek-row"><span class="label">Theta</span><span class="value" id="theta">--</span></div>
+      <div class="greek-row"><span class="label">Vega</span><span class="value" id="vega">--</span></div>
+      <div class="greek-row"><span class="label">隐含波动率</span><span class="value" id="iv">--</span></div>
+      <div class="iv-bar"><div class="iv-bar-fill" id="ivBar" style="width:0%"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">组合状态</div>
+      <div class="greek-row"><span class="label">期权合约</span><span class="value" id="optionCode" style="font-size:11px">--</span></div>
+      <div class="greek-row"><span class="label">期权价格</span><span class="value" id="optionPrice">--</span></div>
+      <div class="greek-row"><span class="label">行权价</span><span class="value" id="strikePrice">--</span></div>
+      <div class="greek-row"><span class="label">正股持仓</span><span class="value" id="stockShares">0</span></div>
+      <div class="greek-row"><span class="label">净 Delta</span><span class="value" id="netDelta">0.00</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">盈亏统计</div>
+      <div class="stats-row" style="justify-content:space-around; margin-top:8px;">
+        <div class="stat">
+          <div class="stat-value" id="realizedPnl">+0.00</div>
+          <div class="stat-label">已实现 PnL</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="unrealizedPnl">+0.00</div>
+          <div class="stat-label">未实现 PnL</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="tradeCount">0</div>
+          <div class="stat-label">交易次数</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="card" style="margin-bottom:12px;">
+    <div class="controls">
+      <button class="btn btn-start" id="btnStart" onclick="startBot()">启动策略</button>
+      <button class="btn btn-stop" id="btnStop" onclick="stopBot()" disabled>停止策略</button>
+      <button class="btn btn-danger" id="btnClose" onclick="closeAll()" disabled>平仓全部</button>
+      <button class="btn" onclick="restartBot()">重启连接</button>
+    </div>
+  </div>
+
+  <!-- Logs -->
+  <div class="card">
+    <div class="card-header">
+      <div class="section-title">运行日志</div>
+      <span id="logCount" class="card-sub">0 条</span>
+    </div>
+    <div class="log-box" id="logBox">
+      <div class="empty-state">等待策略启动...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let lastLogTime = 0;
+let currentState = {};
+
+async function fetchState() {
+  try {
+    let res = await fetch('/api/state');
+    let state = await res.json();
+    currentState = state;
+    updateDashboard(state);
+    return state;
+  } catch(e) { console.error('State fetch error:', e); }
+}
+
+async function fetchLogs() {
+  try {
+    let res = await fetch('/api/logs?since=' + lastLogTime);
+    let data = await res.json();
+    if (data.logs && data.logs.length > 0) {
+      lastLogTime = data.now;
+      updateLogs(data.logs);
+    }
+  } catch(e) { console.error('Log fetch error:', e); }
+}
+
+function updateDashboard(s) {
+  let badge = document.getElementById('statusBadge');
+  if (s.running && s.status === 'running') {
+    badge.className = 'status-badge status-running';
+    badge.innerHTML = '<span class="dot"></span>Running';
+  } else if (s.status === 'error') {
+    badge.className = 'status-badge status-error';
+    badge.innerHTML = '<span class="dot"></span>Error: ' + (s.error || '');
+  } else {
+    badge.className = 'status-badge status-stopped';
+    badge.innerHTML = '<span class="dot"></span>Stopped';
+  }
+  document.getElementById('btnStart').disabled = s.running;
+  document.getElementById('btnStop').disabled = !s.running;
+  document.getElementById('btnClose').disabled = !s.running;
+
+  let price = document.getElementById('price');
+  if (s.price > 0) {
+    price.textContent = 'HK$ ' + s.price.toFixed(2);
+  }
+  let dc = document.getElementById('dayChange');
+  if (s.day_change_pct !== undefined) {
+    let pct = (s.day_change_pct * 100).toFixed(2);
+    dc.textContent = (s.day_change_pct >= 0 ? '+' : '') + pct + '%';
+    dc.className = 'ticker-change ' + (s.day_change_pct >= 0 ? 'value-positive' : 'value-negative');
+  }
+  document.getElementById('atr').textContent = s.atr ? s.atr.toFixed(2) : '--';
+  document.getElementById('delta').textContent = s.option_delta !== undefined ? s.option_delta.toFixed(4) : '--';
+  document.getElementById('gamma').textContent = s.option_gamma !== undefined ? s.option_gamma.toFixed(4) : '--';
+  document.getElementById('theta').textContent = s.option_theta !== undefined ? s.option_theta.toFixed(4) : '--';
+  document.getElementById('vega').textContent = s.option_vega !== undefined ? s.option_vega.toFixed(4) : '--';
+  let iv = document.getElementById('iv');
+  if (s.implied_volatility > 0) {
+    iv.textContent = (s.implied_volatility / 100).toFixed(2) + '%';
+    let barW = Math.min(100, (s.implied_volatility / 100) * 2);
+    document.getElementById('ivBar').style.width = barW + '%';
+  }
+  document.getElementById('optionCode').textContent = s.option_code || '--';
+  document.getElementById('optionPrice').textContent = s.option_price ? 'HK$ ' + s.option_price.toFixed(2) : '--';
+  document.getElementById('strikePrice').textContent = s.strike_price ? 'HK$ ' + s.strike_price.toFixed(2) : '--';
+  let ss = document.getElementById('stockShares');
+  ss.textContent = s.stock_shares > 0 ? '+' + s.stock_shares : s.stock_shares.toString();
+  ss.className = 'value ' + (s.stock_shares > 0 ? 'value-positive' : s.stock_shares < 0 ? 'value-negative' : '');
+  let nd = document.getElementById('netDelta');
+  nd.textContent = s.net_delta !== undefined ? s.net_delta.toFixed(2) : '0.00';
+  nd.className = 'value ' + (s.net_delta > 0 ? 'value-positive' : s.net_delta < 0 ? 'value-negative' : '');
+  let rp = document.getElementById('realizedPnl');
+  rp.textContent = (s.realized_pnl >= 0 ? '+' : '') + (s.realized_pnl ? s.realized_pnl.toFixed(2) : '0.00');
+  rp.className = 'stat-value ' + (s.realized_pnl >= 0 ? 'value-positive' : 'value-negative');
+  let up = document.getElementById('unrealizedPnl');
+  up.textContent = (s.unrealized_pnl >= 0 ? '+' : '') + (s.unrealized_pnl ? s.unrealized_pnl.toFixed(2) : '0.00');
+  up.className = 'stat-value ' + (s.unrealized_pnl >= 0 ? 'value-positive' : 'value-negative');
+  document.getElementById('tradeCount').textContent = s.trade_count || 0;
+  document.getElementById('logCount').textContent = s.signal_count || 0;
+}
+
+function updateLogs(logs) {
+  let box = document.getElementById('logBox');
+  let empty = box.querySelector('.empty-state');
+  if (empty) empty.remove();
+  for (let log of logs) {
+    let d = new Date(log.time * 1000);
+    let time = d.toLocaleTimeString('zh-CN', {hour12: false});
+    let entry = document.createElement('div');
+    entry.className = 'log-entry log-' + log.level;
+    entry.innerHTML = '<span class="log-time">' + time + '</span> [' + log.level + '] ' + escapeHtml(log.message);
+    box.appendChild(entry);
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+function escapeHtml(text) {
+  let div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function startBot() {
+  document.getElementById('btnStart').disabled = true;
+  let res = await fetch('/api/start', {method:'POST'});
+  let data = await res.json();
+  if (!data.success) alert('Start failed');
+}
+
+async function stopBot() {
+  await fetch('/api/stop', {method:'POST'});
+}
+
+async function closeAll() {
+  if (confirm('确认平掉全部头寸？')) {
+    await fetch('/api/close', {method:'POST'});
+  }
+}
+
+async function restartBot() {
+  await fetch('/api/restart', {method:'POST'});
+}
+
+// Polling loop
+setInterval(() => { fetchState(); fetchLogs(); }, 1000);
+fetchState();
+fetchLogs();
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+numpy
+pandas
+scipy
+PyYAML
+flask
+futu-api
+fastapi
+uvicorn
+websockets
+python-multipart
